@@ -38,6 +38,7 @@ class Detection(Base):
     # Detection details
     detection_type = Column(String(100), nullable=False)  # e.g., "person", "vehicle", "intrusion"
     confidence = Column(Float, nullable=False)  # 0.0 to 1.0
+    description = Column(String(1000), nullable=True)  # Human-readable description
     bounding_box = Column(JSON, nullable=True)  # {"x": 100, "y": 200, "width": 50, "height": 100}
     metadata_ = Column(JSON, nullable=True)  # Additional detection data
     

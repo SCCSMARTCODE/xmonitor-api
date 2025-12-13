@@ -68,6 +68,7 @@ class CRUDAnalytics:
             alert_id=obj_in.alert_id,
             detection_type=obj_in.detection_type,
             confidence=obj_in.confidence,
+            description=obj_in.description,
             bounding_box=obj_in.bounding_box,
             metadata_=obj_in.metadata,
             frame_id=obj_in.frame_id

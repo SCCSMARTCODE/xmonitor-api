@@ -90,10 +90,47 @@ class FeedMonitor:
                 f"{analysis.description[:60]}..."
             )
             
-            # TODO: Store detection in DB (Internal Sync)
-            # await self._save_detection_internal(analysis)
+            # Store detection in DB
+            await self._save_detection_internal(analysis)
 
         return analysis
+
+    async def _save_detection_internal(self, analysis: FrameAnalysis):
+        """
+        Save a high-risk frame analysis as a Detection in the database.
+        """
+        from uuid import UUID as PyUUID
+        from app.core.database import AsyncSessionLocal
+        from app.crud.analytics import analytics
+        from app.schemas.analytics import DetectionCreate
+        
+        try:
+            feed_id = self.config['camera']['id']
+            
+            # Convert feed_id to UUID if it's a string
+            if isinstance(feed_id, str):
+                feed_id = PyUUID(feed_id)
+            
+            detection_data = DetectionCreate(
+                feed_id=feed_id,
+                detection_type=analysis.risk_level.value if hasattr(analysis, 'risk_level') and analysis.risk_level else "anomaly",
+                confidence=analysis.flag_rate,
+                description=analysis.description,
+                bounding_box=None,  # Not available from classifier
+                metadata={
+                    "description": analysis.description,
+                    "risk_level": analysis.risk_level.value if hasattr(analysis, 'risk_level') and analysis.risk_level else None,
+                    "timestamp": analysis.timestamp.isoformat()
+                },
+                frame_id=str(analysis.frame_id)
+            )
+            
+            async with AsyncSessionLocal() as db:
+                await analytics.create_detection(db, obj_in=detection_data)
+                logger.debug(f"Detection saved for frame {analysis.frame_id}")
+                
+        except Exception as e:
+            logger.error(f"Failed to save detection: {e}")
 
     async def check_segment_trigger(self) -> Optional[VideoSegment]:
         """

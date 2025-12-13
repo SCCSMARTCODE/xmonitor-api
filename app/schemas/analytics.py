@@ -28,6 +28,7 @@ class SystemMetricResponse(SystemMetricBase):
 class DetectionBase(BaseModel):
     detection_type: str
     confidence: float = Field(..., ge=0.0, le=1.0)
+    description: Optional[str] = None
     bounding_box: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
     frame_id: Optional[str] = None
