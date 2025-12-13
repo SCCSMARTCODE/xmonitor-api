@@ -142,6 +142,12 @@ async def toggle_feed_status(
     
     new_status = FeedStatus.ACTIVE if feed.status == FeedStatus.INACTIVE.value else FeedStatus.INACTIVE
     feed = await feed_crud.update(db, db_obj=feed, obj_in={"status": new_status})
+    
+    # Trigger Background Worker if ACTIVE
+    if new_status == FeedStatus.ACTIVE:
+        from app.worker.tasks import monitor_feed_task
+        monitor_feed_task.delay(str(feed.id))
+
     return feed
 
 
