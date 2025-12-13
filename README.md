@@ -1,173 +1,267 @@
-# FastAPI Application
-MIT License
+# SafeX API - FastAPI Backend
 
-## License
+**AI-Powered Safety Monitoring System Backend**
 
-- Review CORS settings for production
-- Consider using HTTPS in production
-- Use strong passwords
-- Change `SECRET_KEY` in `.env` before deploying to production
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109.0-009688.svg)](https://fastapi.tiangolo.com)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-via%20Supabase-336791.svg)](https://supabase.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Security Notes
+---
 
-4. Import model in `app/models/__init__.py`
-3. Create CRUD operations in `app/crud/`
-2. Create corresponding schemas in `app/schemas/`
-1. Create model in `app/models/`
+## 🚀 Quick Start
 
-### Adding new models
+### Prerequisites
+- Python 3.10+
+- PostgreSQL (via Supabase)
+- Redis (for WebSocket pub/sub)
+- Twilio Account (for SMS/calls)
+- Cloudinary Account (for media storage)
 
-3. Include the router in `app/api/v1/router.py`
-2. Define your routes in the new file
-1. Create a new endpoint file in `app/api/v1/endpoints/`
+### 1. Clone and Setup
 
-### Adding new endpoints
+```powershell
+# Navigate to safex-api directory
+cd C:\Users\PC\Desktop\safex-api
 
-## Development
-
-- **users** - User accounts with authentication
-
-### Tables
-
-The application uses SQLite database (`app.db`) which will be automatically created on first run.
-
-## Database
-
-```
-curl -X GET "http://localhost:8000/api/v1/users"
-```bash
-
-### Get users list
-
-```
-  }'
-    "password": "secure_password"
-    "username": "johndoe",
-  -d '{
-  -H "Content-Type: application/json" \
-curl -X POST "http://localhost:8000/api/v1/users/login" \
-```bash
-
-### Login
-
-```
-  }'
-    "full_name": "John Doe"
-    "password": "secure_password",
-    "username": "johndoe",
-    "email": "user@example.com",
-  -d '{
-  -H "Content-Type: application/json" \
-curl -X POST "http://localhost:8000/api/v1/users/register" \
-```bash
-
-### Register a new user
-
-## Usage Examples
-
-- `GET /api/v1/users` - Get list of users
-- `POST /api/v1/users/login` - Login and get access token
-- `POST /api/v1/users/register` - Register a new user
-### User Management
-
-- `GET /health` - Health check
-- `GET /` - Root endpoint
-### Health Check
-
-## API Endpoints
-
-- ReDoc: http://localhost:8000/redoc
-- Swagger UI: http://localhost:8000/docs
-- Main API: http://localhost:8000
-The API will be available at:
-
-```
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-# Or use uvicorn directly
-
-python main.py
-# Development mode with auto-reload
-```bash
-
-### 4. Run the application
-
-- Modify other settings as required
-- Adjust CORS origins
-- Update `SECRET_KEY` for production
-Copy `.env` and update settings as needed:
-
-### 3. Configure environment
-
-```
-pip install -r requirements.txt
-```bash
-
-### 2. Install dependencies
-
-```
-source .venv/bin/activate
-# Activate (Linux/Mac)
-
-.venv\Scripts\activate.bat
-# Activate (Windows CMD)
-
-.\.venv\Scripts\Activate.ps1
-# Activate (Windows PowerShell)
-
-python -m venv .venv
 # Create virtual environment
-```bash
+python -m venv .venv
 
-### 1. Create and activate virtual environment
+# Activate virtual environment
+.\.venv\Scripts\Activate.ps1
 
-## Installation
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment
+
+```powershell
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your credentials
+notepad .env
+```
+
+**Required Environment Variables:**
+- `DATABASE_URL` - Supabase PostgreSQL connection (async)
+- `SYNC_DATABASE_URL` - Supabase PostgreSQL connection (sync, for migrations)
+- `SECRET_KEY` - JWT secret (min 32 characters)
+- `REDIS_URL` - Redis connection string
+- (Optional) `CLOUDINARY_*` - Cloudinary credentials
+- (Optional) `TWILIO_*` - Twilio credentials
+
+### 3. Initialize Database
+
+```powershell
+# Run Alembic migrations
+alembic upgrade head
+```
+
+### 4. Run Server
+
+```powershell
+# Development mode (with auto-reload)
+python main.py
+
+# Or using uvicorn directly
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**API will be available at:**
+- Main API: http://localhost:8000
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+---
+
+## 📦 Project Structure
 
 ```
-└── README.md              # This file
-├── .env                    # Environment variables
-├── requirements.txt        # Python dependencies
-├── main.py                 # Application entry point
-│       └── user.py         # Pydantic schemas
-│       ├── __init__.py
-│   └── schemas/
-│   │   └── user.py         # SQLAlchemy models
-│   │   ├── __init__.py
-│   ├── models/
-│   │   └── user.py         # CRUD operations for users
-│   │   ├── __init__.py
-│   ├── crud/
-│   │   └── security.py     # JWT & password hashing
-│   │   ├── database.py     # Database connection & session
-│   │   ├── config.py       # Configuration settings
-│   │   ├── __init__.py
-│   ├── core/
-│   │           └── users.py
-│   │           ├── __init__.py
-│   │       └── endpoints/
-│   │       ├── router.py
-│   │       ├── __init__.py
-│   │   └── v1/
-│   │   ├── __init__.py
-│   ├── api/
-│   ├── __init__.py
-├── app/
 safex-api/
+├── app/
+│   ├── api/
+│   │   └── v1/
+│   │       ├── endpoints/      # API route handlers
+│   │       └── router.py        # Main API router
+│   ├── core/
+│   │   ├── config.py           # Configuration settings
+│   │   ├── database.py         # Async database connection
+│   │   ├── security.py         # JWT & password hashing
+│   │   └── dependencies.py     # FastAPI dependencies
+│   ├── models/                 # SQLAlchemy models
+│   ├── schemas/                # Pydantic schemas
+│   ├── crud/                   # Database operations
+│   ├── services/               # Business logic
+│   └── utils/                  # Utility functions
+├── alembic/                    # Database migrations
+├── uploads/                    # Local media storage
+├── main.py                     # Application entry point
+├── requirements.txt            # Python dependencies
+└── .env                        # Environment variables
 ```
 
-## Project Structure
+---
 
-- ✅ Auto-generated API documentation (Swagger UI & ReDoc)
-- ✅ CORS middleware
-- ✅ CRUD operations
-- ✅ Pydantic schemas for validation
-- ✅ User registration and login endpoints
-- ✅ Password hashing with bcrypt
-- ✅ JWT authentication
-- ✅ SQLite database with SQLAlchemy ORM
-- ✅ FastAPI framework
+## 🔌 API Endpoints
 
-## Features
+### Authentication
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - User login
+- `POST /api/v1/auth/refresh` - Refresh JWT token
+- `GET /api/v1/auth/me` - Get current user
 
-A production-ready FastAPI application with SQLite database, SQLAlchemy ORM, JWT authentication, and user management.
+### Camera Feeds
+- `GET /api/v1/feeds` - List all feeds
+- `POST /api/v1/feeds` - Create feed
+- `PATCH /api/v1/feeds/{id}` - Update feed
+- `DELETE /api/v1/feeds/{id}` - Delete feed
+- `POST /api/v1/feeds/{id}/toggle` - Toggle feed status
 
+### Alerts
+- `GET /api/v1/alerts` - List alerts (with filters)
+- `POST /api/v1/alerts` - Create alert (agent endpoint)
+- `POST /api/v1/alerts/{id}/resolve` - Resolve alert
 
+### Analytics
+- `GET /api/v1/analytics/system-status` - System metrics
+- `GET /api/v1/analytics/quick-stats` - Quick statistics
+- `GET /api/v1/analytics/trends` - Detection trends
+
+### WebSocket
+- `/ws/monitoring` - Real-time updates
+
+**[Full API Documentation →](http://localhost:8000/docs)**
+
+---
+
+## 🗄️ Database Migrations
+
+### Create Migration
+
+```powershell
+alembic revision --autogenerate -m "description of changes"
+```
+
+### Apply Migrations
+
+```powershell
+# Upgrade to latest
+alembic upgrade head
+
+# Upgrade one version
+alembic upgrade +1
+
+# Downgrade one version
+alembic downgrade -1
+```
+
+### View Migration History
+
+```powershell
+alembic history
+alembic current
+```
+
+---
+
+## 🔐 Security
+
+- **JWT Authentication**: Access tokens (1 hour) + Refresh tokens (30 days)
+- **Password Hashing**: Bcrypt with salt
+- **CORS**: Configured for specific origins
+- **SQL Injection**: Protected by SQLAlchemy ORM
+- **Environment Variables**: Sensitive data never committed
+
+---
+
+## 🧪 Testing
+
+```powershell
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=app
+
+# Run specific test file
+pytest tests/test_auth.py
+```
+
+---
+
+## 🚀 Deployment
+
+### Production Checklist
+
+- [ ] Set `DEBUG=False` in `.env`
+- [ ] Generate strong `SECRET_KEY` (32+ characters)
+- [ ] Configure production database (Supabase)
+- [ ] Set up Redis instance
+- [ ] Configure Cloudinary for media storage
+- [ ] Set up Twilio for SMS/calls
+- [ ] Update `ALLOWED_ORIGINS` with production URLs
+- [ ] Run migrations: `alembic upgrade head`
+- [ ] Use production ASGI server (Gunicorn + Uvicorn)
+
+### Production Server
+
+```bash
+# Using Gunicorn with Uvicorn workers
+gunicorn main:app \
+  --workers 4 \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 \
+  --access-logfile - \
+  --error-logfile -
+```
+
+---
+
+## 📚 Documentation
+
+- **Implementation Plan**: [implementation_plan.md](../../../.gemini/antigravity/brain/6b17de71-b89c-418d-b5ae-e16679a3f060/implementation_plan.md)
+- **Task List**: [task.md](../../../.gemini/antigravity/brain/6b17de71-b89c-418d-b5ae-e16679a3f060/task.md)
+- **API Spec**: [BACKEND_API_SPECIFICATION.md](../safex-ui/BACKEND_API_SPECIFICATION.md)
+
+---
+
+## 🤝 Integration
+
+### SafeX Agent Integration
+
+The Agent connects to the API to:
+1. Create alerts when threats detected
+2. Send real-time detection data
+3. Log events
+4. Update system metrics
+
+**Agent Authentication**: JWT tokens (recommended) or API keys
+
+### SafeX UI Integration
+
+The UI fetches data from:
+- System status and metrics
+- Camera feed management
+- Alerts with AI analysis
+- Real-time updates via WebSocket
+
+---
+
+## 📄 License
+
+MIT License - see LICENSE file for details
+
+---
+
+## 🆘 Support
+
+For issues or questions:
+1. Check [implementation_plan.md](../../../.gemini/antigravity/brain/6b17de71-b89c-418d-b5ae-e16679a3f060/implementation_plan.md)
+2. Review API documentation at `/docs`
+3. Check database migrations: `alembic current`
+
+---
+
+**SafeX API v1.0.0** - Powering Intelligent Safety Monitoring 🛡️

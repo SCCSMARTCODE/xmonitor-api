@@ -1,0 +1,40 @@
+# Core Framework
+fastapi==0.124.0
+uvicorn[standard]==0.38.0
+python-multipart==0.0.20
+
+# Database (PostgreSQL with SQLAlchemy 2.0)
+sqlalchemy[asyncio]==2.0.44
+asyncpg==0.31.0
+psycopg2-binary==2.9.11
+alembic==1.17.2
+greenlet==3.3.0
+
+# Authentication & Security
+python-jose[cryptography]==3.5.0
+passlib==1.7.4
+argon2-cffi==25.1.0
+python-dotenv==1.2.1
+pydantic==2.12.5
+pydantic-settings==2.12.0
+email-validator==2.3.0
+
+# WebSocket & Real-time
+websockets==15.0.1
+redis
+
+# Notifications
+twilio
+
+# Media Storage
+cloudinary
+aiofiles
+
+# Utils
+python-dateutil==2.9.0.post0
+
+# Development
+pytest
+pytest-asyncio
+httpx
+
