@@ -32,13 +32,18 @@ class FrameClassifier:
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        api_key = os.getenv("MISTRAL_API_KEY")
-        if not api_key:
-             # Fallback or allow if not set (for safety)
-             # raise ValueError("MISTRAL_API_KEY environment variable not set")
-             pass
+        # Load Google API key for Genai client
+        api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 
-        self.client = genai.Client(api_key=api_key) if api_key else genai.Client()
+        # Debug logging to verify key is loaded
+        if not api_key:
+            logger.error("GOOGLE_API_KEY or GEMINI_API_KEY not found in environment variables!")
+            logger.error(f"Available env vars starting with 'GOOGLE': {[k for k in os.environ.keys() if 'GOOGLE' in k.upper()]}")
+            raise ValueError("GOOGLE_API_KEY or GEMINI_API_KEY environment variable not set")
+        else:
+            logger.info(f"Google API key loaded successfully (length: {len(api_key)})")
+
+        self.client = genai.Client(api_key=api_key)
         self.model_name = config['classifier']['model_name']
         self.flag_threshold = config['classifier']['flag_threshold']
         self.frame_skip = config['classifier'].get('frame_skip', 1)
@@ -191,7 +196,7 @@ You MUST output ONLY a valid JSON object in this exact structure:
                 )
 
                 logger.debug(f"Frame {frame_id} analyzed: flag_rate={result.flag_rate:.2f}")
-                # logger.info(analysis.to_json())
+                logger.info(analysis.to_json())
                 return analysis
             else:
                 raise ValueError("Invalid response from Model model")

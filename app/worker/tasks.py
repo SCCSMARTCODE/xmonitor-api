@@ -1,8 +1,13 @@
+import os
 import logging
 import time
 import asyncio
 from typing import Dict, Any
 from datetime import datetime
+
+# Load environment variables FIRST before any other imports
+from dotenv import load_dotenv
+load_dotenv()
 
 from app.core.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
@@ -52,7 +57,32 @@ def monitor_feed_task(self, feed_id: str):
         if not feed:
              logger.error(f"Feed {feed_id} not found.")
              return
-             
+
+        # Serialize feed settings
+        feed_settings_dict = {}
+        if feed.settings:
+            feed_settings_dict = {
+                'push_enabled': feed.settings.push_enabled,
+                'email_enabled': feed.settings.email_enabled,
+                'sms_enabled': feed.settings.sms_enabled,
+                'sound_enabled': feed.settings.sound_enabled,
+                'sensitivity': feed.settings.sensitivity,
+                'auto_record': feed.settings.auto_record,
+                'record_duration': feed.settings.record_duration,
+            }
+
+        # Serialize contacts
+        contacts_list = []
+        if feed.contacts:
+            for contact in feed.contacts:
+                contacts_list.append({
+                    'id': str(contact.id),
+                    'name': contact.name,
+                    'phone': contact.phone,
+                    'email': contact.email,
+                    'is_active': contact.is_active,
+                })
+
         settings = {
              'camera': {
                  'id': feed_id,
@@ -65,7 +95,7 @@ def monitor_feed_task(self, feed_id: str):
              },
              'classifier': {
                 'model_name': 'gemini-2.5-flash',
-                'flag_threshold': 0.7,
+                'flag_threshold': 0.5,  # Lowered from 0.7 to capture more detections
                 'frame_skip': 5,
                 'evaluation_window': 5
              },
@@ -80,8 +110,8 @@ def monitor_feed_task(self, feed_id: str):
              'surveillance': {
                  'instruction': feed.custom_instruction or "Detect any anomalous behavior.",
                  'alert_configuration': {
-                     "configs": feed.settings.model_dump_json() if feed.settings else "{}",
-                     "contacts": [c.model_dump() for c in feed.contacts] if feed.contacts else [],
+                     "configs": feed_settings_dict,
+                     "contacts": contacts_list,
                  }
              }
         }

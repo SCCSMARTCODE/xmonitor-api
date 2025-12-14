@@ -1,9 +1,26 @@
-from celery import Celery
 import os
+from pathlib import Path
+from celery import Celery
+from dotenv import load_dotenv
 
-# Use Redis as Broker and Backend
-# Default to localhost if not set in env
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+# Load .env file explicitly with absolute path
+env_path = Path(__file__).parent.parent.parent / '.env'
+load_dotenv(dotenv_path=env_path, override=True)
+
+# Verify critical environment variables are loaded
+if not os.getenv('GOOGLE_API_KEY'):
+    print("WARNING: GOOGLE_API_KEY not loaded from .env file!")
+    print(f"Tried to load from: {env_path}")
+    print(f"File exists: {env_path.exists()}")
+
+from app.core.config import settings
+
+# Import all models to ensure SQLAlchemy relationships are resolved
+# This must happen before Celery tasks are loaded
+import app.models  # noqa: F401
+
+# Use Redis as Broker and Backend (from settings which loads from .env)
+REDIS_URL = settings.REDIS_URL
 
 celery_app = Celery(
     "safex_worker",

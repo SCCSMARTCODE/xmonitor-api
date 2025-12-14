@@ -1,0 +1,1 @@
+ffmpeg -f dshow -i video="HP HD Camera" -vcodec libx264 -preset ultrafast -tune zerolatency -f flv rtmp://localhost:1935/mystream

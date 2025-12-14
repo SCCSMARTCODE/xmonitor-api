@@ -82,16 +82,17 @@ class FeedMonitor:
         # Add to current segment
         self.current_segment_frames.append(analysis)
 
-        # Log & Action High-Risk Frames
+        # Save ALL detections to database for comprehensive analytics
+        # This ensures we have a complete record of all frame analyses
+        await self._save_detection_internal(analysis)
+
+        # Log High-Risk Frames separately
         if analysis.flag_rate >= self.config['classifier']['flag_threshold']:
             logger.warning(
-                f"HIGH FLAG: Frame {frame_id} | "
+                f"🚨 HIGH FLAG: Frame {frame_id} | "
                 f"Rate: {analysis.flag_rate:.2f} | "
                 f"{analysis.description[:60]}..."
             )
-            
-            # Store detection in DB
-            await self._save_detection_internal(analysis)
 
         return analysis
 
@@ -99,6 +100,7 @@ class FeedMonitor:
         """
         Save a high-risk frame analysis as a Detection in the database.
         """
+        import traceback
         from uuid import UUID as PyUUID
         from app.core.database import AsyncSessionLocal
         from app.crud.analytics import analytics
@@ -106,7 +108,8 @@ class FeedMonitor:
         
         try:
             feed_id = self.config['camera']['id']
-            
+            logger.info(f"Attempting to save detection for frame {analysis.frame_id}, feed_id: {feed_id}")
+
             # Convert feed_id to UUID if it's a string
             if isinstance(feed_id, str):
                 feed_id = PyUUID(feed_id)
@@ -120,17 +123,21 @@ class FeedMonitor:
                 metadata={
                     "description": analysis.description,
                     "risk_level": analysis.risk_level.value if hasattr(analysis, 'risk_level') and analysis.risk_level else None,
-                    "timestamp": analysis.timestamp.isoformat()
+                    "timestamp": analysis.timestamp.isoformat(),
+                    "context_tags": analysis.context_tags if hasattr(analysis, 'context_tags') else []
                 },
                 frame_id=str(analysis.frame_id)
             )
             
+            logger.info(f"Detection data prepared: {detection_data.detection_type}, confidence: {detection_data.confidence}")
+
             async with AsyncSessionLocal() as db:
-                await analytics.create_detection(db, obj_in=detection_data)
-                logger.debug(f"Detection saved for frame {analysis.frame_id}")
-                
+                result = await analytics.create_detection(db, obj_in=detection_data)
+                logger.info(f"✓ Detection saved successfully! ID: {result.id}, Frame: {analysis.frame_id}")
+
         except Exception as e:
-            logger.error(f"Failed to save detection: {e}")
+            logger.error(f"❌ Failed to save detection for frame {analysis.frame_id}: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
 
     async def check_segment_trigger(self) -> Optional[VideoSegment]:
         """

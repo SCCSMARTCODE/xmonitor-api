@@ -34,61 +34,33 @@ async def get_system_status(
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """
-    Get current system status for dashboard, including per-feed metrics.
+    Get current system status for dashboard - simplified to show active feeds only.
+    CPU/Memory metrics removed as agents now run on server, not cameras.
     """
-    # 1. Get all active feeds for user
+    # Get all feeds for user
     from app.crud.feed import feed as feed_crud
-    active_feeds = await feed_crud.get_multi_by_owner(db, user_id=current_user.id, limit=100)
-    
-    # 2. Get latest metrics for all feeds
-    latest_metrics = await analytics_crud.get_latest_metrics_by_feed(db)
-    
-    # Map metrics by feed_id
-    metrics_map = {m.feed_id: m for m in latest_metrics if m.feed_id}
+    user_feeds = await feed_crud.get_multi_by_owner(db, user_id=current_user.id, limit=100)
     
     feed_statuses = []
-    total_cpu = 0.0
-    total_memory = 0.0
-    active_count = 0
     
-    for feed in active_feeds:
-        metric = metrics_map.get(feed.id)
-        
-        # Default values if no metric found
-        cpu = metric.cpu_usage if metric else 0.0
-        memory = metric.memory_usage if metric else 0.0
-        disk = metric.disk_usage if metric else 0.0
-        latency = metric.network_latency if metric else None
-        
-        # Calculate uptime if metric exists
-        uptime = 0
-        if metric:
-             uptime = int((datetime.now(timezone.utc) - metric.created_at).total_seconds())
-        
-        total_cpu += cpu
-        total_memory += memory
-        active_count += 1
-        
+    for feed in user_feeds:
         feed_statuses.append(
             FeedSystemStatus(
                 feed_id=feed.id,
                 feed_name=feed.name,
-                cpu_usage=cpu,
-                memory_usage=memory,
-                disk_usage=disk,
-                uptime=uptime,
-                network_latency=latency,
+                cpu_usage=0.0,  # Deprecated - kept for schema compatibility
+                memory_usage=0.0,  # Deprecated
+                disk_usage=0.0,  # Deprecated
+                uptime=0,  # Deprecated
+                network_latency=None,  # Deprecated
                 status=feed.status
             )
         )
-            
-    # Calculate global averages/totals
-    count = max(active_count, 1) # Avoid division by zero
     
     return SystemStatusResponse(
-        global_cpu_usage=round(total_cpu / count, 1),
-        global_memory_usage=round(total_memory / count, 1),
-        total_active_feeds=len(active_feeds),
+        global_cpu_usage=0.0,  # Deprecated
+        global_memory_usage=0.0,  # Deprecated
+        total_active_feeds=len([f for f in user_feeds if f.status == 'Active']),
         feeds=feed_statuses
     )
 

@@ -5,13 +5,9 @@ Executes alert actions recommended by the Video Analyzer using LangChain tools.
 import logging
 from typing import Dict, Any, List
 
-from langchain.agents import AgentExecutor, create_openai_tools_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_openai import ChatOpenAI
-# from langchain.schema import SystemMessage, HumanMessage
+# from langchain.agents import AgentExecutor, create_openai_tools_agent
 
 from app.worker.tools.alert_tools import get_alert_tools
-# from app.worker.services.api_client import APIClient # Replaced with internal logic if needed
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +31,7 @@ class AlertEngine:
         # to ensure reliability without needing another heavy LLM call if possible.
         # BUT, to match the original "Agent" design, we enable the tool-use agent.
         
-        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0) # Or Gemini if configured
+        # llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0) # Or Gemini if configured
         # Note: If user wants Gemini for everything, we'd swap this. 
         # For now, assuming OpenAI key is present or we swap to Gemini.
         
