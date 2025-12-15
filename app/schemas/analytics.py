@@ -5,9 +5,6 @@ from uuid import UUID
 
 # System Metrics
 class SystemMetricBase(BaseModel):
-    cpu_usage: float = Field(..., ge=0.0, le=100.0)
-    memory_usage: float = Field(..., ge=0.0, le=100.0)
-    disk_usage: float = Field(..., ge=0.0, le=100.0)
     network_latency: Optional[float] = None
     active_feeds: int = 0
     active_agents: int = 0
@@ -26,11 +23,12 @@ class SystemMetricResponse(SystemMetricBase):
 
 # Detections
 class DetectionBase(BaseModel):
-    detection_type: str
+    detection_type: Optional[str] = None
     confidence: float = Field(..., ge=0.0, le=1.0)
     description: Optional[str] = None
+    risk_level: Optional[str] = None
+    context_tags: Optional[List[str]] = None
     bounding_box: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
     frame_id: Optional[str] = None
 
 class DetectionCreate(DetectionBase):
@@ -80,17 +78,13 @@ class FeedSystemStatus(BaseModel):
     """System status for a specific feed"""
     feed_id: UUID
     feed_name: str
-    cpu_usage: float
-    memory_usage: float
-    disk_usage: float
     uptime: int
     network_latency: Optional[float] = None
     status: str = "active"
+    sensitivity: Optional[str] = "medium"
 
 class SystemStatusResponse(BaseModel):
     """Current system status for dashboard"""
-    global_cpu_usage: float
-    global_memory_usage: float
     total_active_feeds: int
     feeds: List[FeedSystemStatus]
 
@@ -104,8 +98,6 @@ class QuickStatsResponse(BaseModel):
 
 class PerformanceMetricsResponse(BaseModel):
     """System performance metrics"""
-    avg_cpu_usage: float
-    avg_memory_usage: float
     avg_network_latency: Optional[float] = None
     total_frames_processed: int
     total_detections: int

@@ -1,13 +1,13 @@
 from typing import Any, List
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user
 from app.crud.analytics import analytics as analytics_crud
-from app.crud.log import log as log_crud
 from app.crud.alert import alert as alert_crud
 from app.models.user import User
 from app.schemas.analytics import (
@@ -41,26 +41,42 @@ async def get_system_status(
     from app.crud.feed import feed as feed_crud
     user_feeds = await feed_crud.get_multi_by_owner(db, user_id=current_user.id, limit=100)
     
+    # Get active sessions to calculate uptime
+    active_sessions = await analytics_crud.get_active_agent_sessions(db)
+    session_map = {session.feed_id: session for session in active_sessions}
+    
     feed_statuses = []
+    now = datetime.now(timezone.utc)
     
     for feed in user_feeds:
+        uptime = 0
+        if feed.id in session_map:
+            session = session_map[feed.id]
+            if session.started_at:
+                # Ensure started_at is timezone aware
+                started_at = session.started_at
+                if started_at.tzinfo is None:
+                    started_at = started_at.replace(tzinfo=timezone.utc)
+                uptime = int((now - started_at).total_seconds())
+
+        # Get sensitivity from settings if available
+        sensitivity = "medium"
+        if feed.settings:
+            sensitivity = feed.settings.sensitivity
+
         feed_statuses.append(
             FeedSystemStatus(
                 feed_id=feed.id,
                 feed_name=feed.name,
-                cpu_usage=0.0,  # Deprecated - kept for schema compatibility
-                memory_usage=0.0,  # Deprecated
-                disk_usage=0.0,  # Deprecated
-                uptime=0,  # Deprecated
-                network_latency=None,  # Deprecated
-                status=feed.status
+                uptime=uptime,
+                network_latency=None,
+                status=feed.status,
+                sensitivity=sensitivity
             )
         )
     
     return SystemStatusResponse(
-        global_cpu_usage=0.0,  # Deprecated
-        global_memory_usage=0.0,  # Deprecated
-        total_active_feeds=len([f for f in user_feeds if f.status == 'Active']),
+        total_active_feeds=len([f for f in user_feeds if f.status == 'active']),
         feeds=feed_statuses
     )
 
@@ -68,26 +84,27 @@ async def get_system_status(
 @router.get("/quick-stats", response_model=QuickStatsResponse)
 async def get_quick_stats(
     db: AsyncSession = Depends(get_db),
+    feed_id: UUID = Query(None),
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """
     Get quick stats for today.
     """
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    this_hour_start = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
-    
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    this_hour_start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+
     # Count calls and SMS from AlertActions
-    calls_triggered = await analytics_crud.count_actions_today(db, action_type="call")
-    sms_sent = await analytics_crud.count_actions_today(db, action_type="sms")
+    calls_triggered = await analytics_crud.count_actions_today(db, action_type="call", feed_id=feed_id)
+    sms_sent = await analytics_crud.count_actions_today(db, action_type="sms", feed_id=feed_id)
     
     # Count detections this hour
-    detections_this_hour = await analytics_crud.count_detections_since(db, since=this_hour_start)
+    detections_this_hour = await analytics_crud.count_detections_since(db, since=this_hour_start, feed_id=feed_id)
     
     # Count active alerts
-    active_alerts = await analytics_crud.count_active_alerts(db)
+    active_alerts = await analytics_crud.count_active_alerts(db, feed_id=feed_id)
     
     # Count events today (alerts + detections)
-    events_today = await analytics_crud.count_detections_since(db, since=today_start)
+    events_today = await analytics_crud.count_detections_since(db, since=today_start, feed_id=feed_id)
     
     return QuickStatsResponse(
         events_today=events_today,
@@ -116,9 +133,7 @@ async def get_performance_metrics(
     total_detections = sum(session.detections_count for session in active_sessions)
     
     return PerformanceMetricsResponse(
-        avg_cpu_usage=avg_metrics["avg_cpu_usage"],
-        avg_memory_usage=avg_metrics["avg_memory_usage"],
-        avg_network_latency=avg_metrics["avg_network_latency"],
+        avg_network_latency=avg_metrics.get("avg_network_latency"),
         total_frames_processed=total_frames,
         total_detections=total_detections
     )
@@ -128,19 +143,45 @@ async def get_performance_metrics(
 async def get_detection_trends(
     db: AsyncSession = Depends(get_db),
     hours: int = Query(24, ge=1, le=168),
+    feed_id: UUID = Query(None),
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """
-    Get detection trends over time.
+    Get detection confidence values over time for real-time line chart.
+    Returns individual detection points with timestamp and confidence value.
     """
-    since = datetime.utcnow() - timedelta(hours=hours)
+    from app.models.analytics import Detection
+    
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
     
     # Get detection types count
     detection_types = await analytics_crud.get_detection_types_count(db, since=since)
     
-    # For hourly detections, we'd need to group by hour
-    # For now, return empty list (would require more complex query)
-    hourly_detections = []
+    # Get individual detections with timestamp and confidence
+    query = (
+        select(
+            Detection.timestamp,
+            Detection.confidence,
+            Detection.detection_type
+        )
+        .where(Detection.timestamp >= since)
+        .order_by(Detection.timestamp)
+    )
+    
+    if feed_id:
+        query = query.where(Detection.feed_id == feed_id)
+    
+    # Limit to last 500 points for performance
+    query = query.limit(500)
+    
+    result = await db.execute(query)
+    rows = result.all()
+    
+    # Return detection confidence points
+    hourly_detections = [
+        TrendData(timestamp=row.timestamp, value=float(row.confidence))
+        for row in rows
+    ]
     
     return DetectionTrendsResponse(
         hourly_detections=hourly_detections,

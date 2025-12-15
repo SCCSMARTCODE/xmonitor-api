@@ -12,9 +12,6 @@ class SystemMetric(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     
     # Metrics
-    cpu_usage = Column(Float, nullable=False)  # Percentage
-    memory_usage = Column(Float, nullable=False)  # Percentage
-    disk_usage = Column(Float, nullable=False)  # Percentage
     network_latency = Column(Float, nullable=True)  # Milliseconds
     active_feeds = Column(Integer, default=0)
     active_agents = Column(Integer, default=0)
@@ -24,7 +21,7 @@ class SystemMetric(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
 
     def __repr__(self):
-        return f"<SystemMetric(id={self.id}, cpu={self.cpu_usage}%, mem={self.memory_usage}%)>"
+        return f"<SystemMetric(id={self.id})>"
 
 
 class Detection(Base):
@@ -36,11 +33,12 @@ class Detection(Base):
     alert_id = Column(UUID(as_uuid=True), ForeignKey("alerts.id"), nullable=True)
     
     # Detection details
-    detection_type = Column(String(100), nullable=False)  # e.g., "person", "vehicle", "intrusion"
+    detection_type = Column(String(100), nullable=False)  # e.g., "high", "medium", "low" (formerly risk_level)
     confidence = Column(Float, nullable=False)  # 0.0 to 1.0
     description = Column(String(1000), nullable=True)  # Human-readable description
+    context_tags = Column(JSON, nullable=True)  # List of tags e.g. ["human_presence", "idle_activity"]
     bounding_box = Column(JSON, nullable=True)  # {"x": 100, "y": 200, "width": 50, "height": 100}
-    metadata_ = Column(JSON, nullable=True)  # Additional detection data
+    # metadata_ = Column(JSON, nullable=True)  # Deprecated
     
     # Frame information
     frame_id = Column(String(255), nullable=True)

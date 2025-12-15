@@ -20,9 +20,6 @@ class CRUDAnalytics:
     async def create_metric(self, db: AsyncSession, *, obj_in: SystemMetricCreate) -> SystemMetric:
         """Create new system metric"""
         db_obj = SystemMetric(
-            cpu_usage=obj_in.cpu_usage,
-            memory_usage=obj_in.memory_usage,
-            disk_usage=obj_in.disk_usage,
             network_latency=obj_in.network_latency,
             active_feeds=obj_in.active_feeds,
             active_agents=obj_in.active_agents,
@@ -48,29 +45,34 @@ class CRUDAnalytics:
         since = datetime.utcnow() - timedelta(hours=hours)
         result = await db.execute(
             select(
-                func.avg(SystemMetric.cpu_usage).label("avg_cpu"),
-                func.avg(SystemMetric.memory_usage).label("avg_memory"),
                 func.avg(SystemMetric.network_latency).label("avg_latency")
             ).where(SystemMetric.created_at >= since)
         )
         row = result.first()
         return {
-            "avg_cpu_usage": float(row.avg_cpu) if row.avg_cpu else 0.0,
-            "avg_memory_usage": float(row.avg_memory) if row.avg_memory else 0.0,
             "avg_network_latency": float(row.avg_latency) if row.avg_latency else None
         }
 
     # Detections
     async def create_detection(self, db: AsyncSession, *, obj_in: DetectionCreate) -> Detection:
         """Create new detection"""
+        # Map risk_level to detection_type if detection_type is missing
+        detection_type = obj_in.detection_type
+        if not detection_type and obj_in.risk_level:
+            detection_type = obj_in.risk_level
+
+        # Fallback if both are missing (shouldn't happen with valid input)
+        if not detection_type:
+            detection_type = "unknown"
+
         db_obj = Detection(
             feed_id=obj_in.feed_id,
             alert_id=obj_in.alert_id,
-            detection_type=obj_in.detection_type,
+            detection_type=detection_type,
             confidence=obj_in.confidence,
             description=obj_in.description,
+            context_tags=obj_in.context_tags,
             bounding_box=obj_in.bounding_box,
-            metadata_=obj_in.metadata,
             frame_id=obj_in.frame_id
         )
         db.add(db_obj)
@@ -91,23 +93,29 @@ class CRUDAnalytics:
         result = await db.execute(query)
         return result.scalars().all()
 
-    async def count_detections_since(self, db: AsyncSession, *, since: datetime) -> int:
+    async def count_detections_since(self, db: AsyncSession, *, since: datetime, feed_id: Optional[UUID] = None) -> int:
         """Count detections since a given time"""
-        result = await db.execute(
-            select(func.count(Detection.id)).where(Detection.timestamp >= since)
-        )
+        query = select(func.count(Detection.id)).where(Detection.timestamp >= since)
+        if feed_id:
+            query = query.where(Detection.feed_id == feed_id)
+        result = await db.execute(query)
         return result.scalar()
 
-    async def get_detection_types_count(self, db: AsyncSession, *, since: datetime) -> dict:
+    async def get_detection_types_count(self, db: AsyncSession, *, since: datetime, feed_id: Optional[UUID] = None) -> dict:
         """Get count of detections by type"""
-        result = await db.execute(
+        query = (
             select(
                 Detection.detection_type,
                 func.count(Detection.id).label("count")
             )
             .where(Detection.timestamp >= since)
-            .group_by(Detection.detection_type)
         )
+        if feed_id:
+            query = query.where(Detection.feed_id == feed_id)
+            
+        query = query.group_by(Detection.detection_type)
+        
+        result = await db.execute(query)
         return {row.detection_type: row.count for row in result}
 
     # Agent Sessions
@@ -151,21 +159,27 @@ class CRUDAnalytics:
         )
         return result.scalars().all()
 
-    async def count_active_alerts(self, db: AsyncSession) -> int:
+    async def count_active_alerts(self, db: AsyncSession, feed_id: Optional[UUID] = None) -> int:
         """Count active alerts"""
-        result = await db.execute(
-            select(func.count(Alert.id)).where(Alert.status == "active")
-        )
+        query = select(func.count(Alert.id)).where(Alert.status == "active")
+        if feed_id:
+            query = query.where(Alert.feed_id == feed_id)
+        result = await db.execute(query)
         return result.scalar()
 
-    async def count_actions_today(self, db: AsyncSession, *, action_type: str) -> int:
+    async def count_actions_today(self, db: AsyncSession, *, action_type: str, feed_id: Optional[UUID] = None) -> int:
         """Count actions of a specific type today"""
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        result = await db.execute(
+        query = (
             select(func.count(AlertAction.id))
+            .join(Alert, AlertAction.alert_id == Alert.id)
             .where(AlertAction.action_type == action_type)
             .where(AlertAction.created_at >= today_start)
         )
+        if feed_id:
+            query = query.where(Alert.feed_id == feed_id)
+            
+        result = await db.execute(query)
         return result.scalar()
 
 analytics = CRUDAnalytics()
