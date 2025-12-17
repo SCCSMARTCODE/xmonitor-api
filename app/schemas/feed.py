@@ -94,7 +94,6 @@ class FeedResponse(FeedBase):
     current_detections: int
     created_at: datetime
     updated_at: datetime
-    updated_at: datetime
     settings: Optional[FeedSettingsResponse] = None
     contacts: Optional[List[AlertContactResponse]] = []
 

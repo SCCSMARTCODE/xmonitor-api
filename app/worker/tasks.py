@@ -14,9 +14,8 @@ from app.core.database import AsyncSessionLocal
 from app.crud.feed import feed as feed_crud
 from app.models.feed import FeedStatus
 
-# Setup logging for worker
-logger = logging.getLogger("celery_worker")
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# Get logger for this module (will use configuration set by worker_init signal)
+logger = logging.getLogger(__name__)
 
 
 async def get_feed_status(feed_id: str) -> str:

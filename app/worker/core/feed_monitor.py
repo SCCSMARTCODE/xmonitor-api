@@ -120,11 +120,11 @@ class FeedMonitor:
                 confidence=analysis.flag_rate,
                 description=analysis.description,
                 bounding_box=None,  # Not available from classifier
+                context_tags=analysis.context_tags if hasattr(analysis, 'context_tags') else [],
                 metadata={
                     "description": analysis.description,
                     "risk_level": analysis.risk_level.value if hasattr(analysis, 'risk_level') and analysis.risk_level else None,
                     "timestamp": analysis.timestamp.isoformat(),
-                    "context_tags": analysis.context_tags if hasattr(analysis, 'context_tags') else []
                 },
                 frame_id=str(analysis.frame_id)
             )
@@ -192,13 +192,20 @@ class FeedMonitor:
             # Process Response (Alerts, DB save)
             if response.should_trigger_alert:
                 self.stats["alerts_triggered"] += 1
-                logger.critical(f"ALERT TRIGGERED: {response.classification}")
-                
+                logger.critical(
+                    f"🚨 ALERT TRIGGERED: Level={response.alert_level} | "
+                    f"Analysis: {response.video_analysis[:100]}..."
+                )
+
                 # Execute recommended actions via AlertEngine
                 if response.recommended_actions:
                     await self.alert_engine.process_alert(
                         response.recommended_actions,
-                        context={"segment_id": segment.segment_id}
+                        context={
+                            "segment_id": segment.segment_id,
+                            "alert_level": response.alert_level,
+                            "video_analysis": response.video_analysis
+                        }
                     )
 
             return response

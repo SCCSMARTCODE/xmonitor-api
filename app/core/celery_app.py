@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from celery import Celery
+from celery.signals import worker_init
 from dotenv import load_dotenv
 
 # Load .env file explicitly with absolute path
@@ -39,6 +40,18 @@ celery_app.conf.update(
     worker_concurrency=4,  # Adjust based on CPU cores
     worker_prefetch_multiplier=1,  # Good for long running tasks (monitoring)
 )
+
+
+@worker_init.connect
+def setup_worker_logging(**kwargs):
+    """Initialize logging when the Celery worker starts"""
+    from app.worker.utils.logging_config import setup_logging
+    setup_logging(
+        level=settings.LOG_LEVEL,
+        log_file="logs/safex-worker.log",
+        console=True
+    )
+
 
 if __name__ == "__main__":
     celery_app.start()

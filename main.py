@@ -1,9 +1,21 @@
 from contextlib import asynccontextmanager
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db
 from app.api.v1.router import api_router
+from app.worker.utils.logging_config import setup_logging
+
+# Setup logging at module load time (before app starts)
+setup_logging(
+    level=settings.LOG_LEVEL,
+    log_file="logs/safex-api.log",
+    console=True
+)
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -12,19 +24,19 @@ async def lifespan(app: FastAPI):
     Lifespan context manager for startup and shutdown events
     """
     # Startup
-    print("Starting up application...")
+    logger.info("Starting up application...")
     await init_db()
     
     # Initialize WebSocket manager with Redis
     from app.services.websocket import manager
     await manager.connect_redis()
     
-    print(f"✅ {settings.APP_NAME} v{settings.APP_VERSION} is ready!")
-    
+    logger.info(f"{settings.APP_NAME} v{settings.APP_VERSION} is ready!")
+
     yield
     
     # Shutdown
-    print("Shutting down application...")
+    logger.info("Shutting down application...")
     if manager.redis_client:
         await manager.redis_client.close()
 
@@ -42,7 +54,8 @@ app = FastAPI(
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
+    # allow_origins=settings.allowed_origins_list,
+    allow_origins=["*"],  # Allow all origins for now
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
