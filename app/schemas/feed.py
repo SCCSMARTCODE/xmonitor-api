@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, ConfigDict, HttpUrl
-from typing import Optional, List
+from pydantic import BaseModel, Field, ConfigDict, HttpUrl, field_validator
+from typing import Optional, List, Union
 from datetime import datetime
 from uuid import UUID
 from enum import Enum
@@ -32,9 +32,20 @@ class FeedSettingsBase(BaseModel):
     email_enabled: bool = False
     sms_enabled: bool = False
     sound_enabled: bool = True
-    sensitivity: SensitivityLevel = SensitivityLevel.MEDIUM
+    sensitivity: Union[SensitivityLevel, str] = SensitivityLevel.MEDIUM
     auto_record: bool = True
     record_duration: int = Field(30, ge=5, le=300)  # 5s to 5min
+
+    @field_validator('sensitivity', mode='before')
+    @classmethod
+    def convert_sensitivity(cls, v):
+        """Convert string sensitivity to enum if needed"""
+        if isinstance(v, str):
+            try:
+                return SensitivityLevel(v.lower())
+            except ValueError:
+                return SensitivityLevel.MEDIUM
+        return v
 
 
 class FeedSettingsCreate(FeedSettingsBase):
@@ -46,9 +57,22 @@ class FeedSettingsUpdate(BaseModel):
     email_enabled: Optional[bool] = None
     sms_enabled: Optional[bool] = None
     sound_enabled: Optional[bool] = None
-    sensitivity: Optional[SensitivityLevel] = None
+    sensitivity: Optional[Union[SensitivityLevel, str]] = None
     auto_record: Optional[bool] = None
     record_duration: Optional[int] = Field(None, ge=5, le=300)
+
+    @field_validator('sensitivity', mode='before')
+    @classmethod
+    def convert_sensitivity(cls, v):
+        """Convert string sensitivity to enum if needed"""
+        if v is None:
+            return v
+        if isinstance(v, str):
+            try:
+                return SensitivityLevel(v.lower())
+            except ValueError:
+                return SensitivityLevel.MEDIUM
+        return v
 
 
 class FeedSettingsResponse(FeedSettingsBase):
@@ -91,10 +115,23 @@ class FeedResponse(FeedBase):
     id: UUID
     user_id: UUID
     fps: int
-    current_detections: int
     created_at: datetime
     updated_at: datetime
-    settings: Optional[FeedSettingsResponse] = None
+    
+    # Stability Metrics (Optional to handle missing DB columns)
+    rolling_confidence_sum: Optional[float] = 0.0
+    total_detection_count: Optional[int] = 0
+    start_time: Optional[datetime] = None
+    
+    @property
+    def stability_score(self) -> float:
+        count = self.total_detection_count or 0
+        if count == 0:
+            return 100.0 # Default perfect stability if no data
+        
+        sum_val = self.rolling_confidence_sum or 0.0
+        # Average confidence * 100
+        return round((sum_val / count) * 100, 1)
     contacts: Optional[List[AlertContactResponse]] = []
 
     model_config = ConfigDict(from_attributes=True)

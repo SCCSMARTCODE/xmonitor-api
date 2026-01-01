@@ -141,7 +141,15 @@ async def toggle_feed_status(
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     new_status = FeedStatus.ACTIVE if feed.status == FeedStatus.INACTIVE.value else FeedStatus.INACTIVE
-    feed = await feed_crud.update(db, db_obj=feed, obj_in={"status": new_status})
+    
+    update_data = {"status": new_status}
+    if new_status == FeedStatus.ACTIVE:
+        from datetime import datetime
+        update_data["start_time"] = datetime.now()
+    else:
+        update_data["start_time"] = None
+        
+    feed = await feed_crud.update(db, db_obj=feed, obj_in=update_data)
     
     # Trigger Background Worker if ACTIVE
     if new_status == FeedStatus.ACTIVE:

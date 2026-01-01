@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, Enum, Text, DateTime
+from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, Enum, Text, DateTime, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -36,8 +36,12 @@ class CameraFeed(Base):
     custom_instruction = Column(Text, nullable=True)
     status = Column(String(20), default=FeedStatus.INACTIVE.value)
     fps = Column(Integer, default=40)
-    current_detections = Column(Integer, default=0)
+    start_time = Column(DateTime(timezone=True), nullable=True) # Tracks when feed became active
     
+    # Running Stats for Stability (Average Confidence)
+    rolling_confidence_sum = Column(Float, default=0.0)
+    total_detection_count = Column(Integer, default=0)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
