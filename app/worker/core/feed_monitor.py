@@ -17,6 +17,14 @@ from app.worker.utils.clip_builder import ClipBuilder
 from app.worker.utils.event_buffer import EventBuffer
 from app.worker.utils.frame_feed import FrameFeed
 
+# Database Imports for Alert Saving
+from app.core.database import AsyncSessionLocal
+from app.crud.alert import alert as alert_crud
+from app.schemas.alert import (
+    AlertCreate, AlertAIAnalysisCreate, AlertActionCreate,
+    AlertStatus, AlertSeverity, AlertType
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -132,12 +140,108 @@ class FeedMonitor:
             logger.info(f"Detection data prepared: {detection_data.detection_type}, confidence: {detection_data.confidence}")
 
             async with AsyncSessionLocal() as db:
+                # 1. Save Detection
                 result = await analytics.create_detection(db, obj_in=detection_data)
-                logger.info(f"✓ Detection saved successfully! ID: {result.id}, Frame: {analysis.frame_id}")
+                
+                # 2. Update Feed Stability Stats (Running Average)
+                # We do this here inside the worker to avoid API latency
+                from app.crud.feed import feed as feed_crud
+                feed_obj = await feed_crud.get(db, id=feed_id)
+                if feed_obj:
+                    new_sum = (feed_obj.rolling_confidence_sum or 0.0) + detection_data.confidence
+                    new_count = (feed_obj.total_detection_count or 0) + 1
+                    await feed_crud.update(db, db_obj=feed_obj, obj_in={
+                        "rolling_confidence_sum": new_sum,
+                        "total_detection_count": new_count
+                    })
+
+                logger.info(f"✓ Detection saved & Stability updated! ID: {result.id}")
 
         except Exception as e:
             logger.error(f"❌ Failed to save detection for frame {analysis.frame_id}: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
+
+    async def _save_alert_to_db(self, segment: VideoSegment, response):
+        """
+        Save the triggered alert and its analysis to the database.
+        """
+        try:
+            feed_id = self.config['camera']['id']
+            # feed_id parsing if string
+            from uuid import UUID as PyUUID
+            if isinstance(feed_id, str):
+                feed_id = PyUUID(feed_id)
+
+            # Map specific types to Generic for now, or infer from instruction/response
+            # Defaulting to 'intrusion' or 'other' based on simple keywords if needed
+            alert_type = AlertType.OTHER
+            if "intrusion" in response.video_analysis.lower():
+                alert_type = AlertType.INTRUSION
+            elif "weapon" in response.video_analysis.lower():
+                alert_type = AlertType.WEAPON
+            elif "fire" in response.video_analysis.lower():
+                alert_type = AlertType.FIRE
+            
+            # Map Level
+            severity_map = {
+                "low": AlertSeverity.LOW,
+                "medium": AlertSeverity.MEDIUM,
+                "high": AlertSeverity.HIGH,
+                "critical": AlertSeverity.CRITICAL
+            }
+            severity = severity_map.get(response.alert_level, AlertSeverity.MEDIUM)
+
+            # Prepare Actions
+            actions_create = []
+            if response.recommended_actions:
+                for act in response.recommended_actions:
+                    # Simple parser for the action type
+                    atype = "log"
+                    recipient = "system"
+                    if "sms" in act.lower():
+                        atype = "sms"
+                        recipient = "configured_contact" # Placeholder logic
+                    elif "email" in act.lower():
+                        atype = "email"
+                    
+                    actions_create.append(AlertActionCreate(
+                        action_type=atype,
+                        recipient=recipient,
+                        status="pending", # Engine proceeds to process
+                        details=act
+                    ))
+
+            # Prepare Analysis Object
+            ai_analysis_create = AlertAIAnalysisCreate(
+                confidence_score=0.95, # High confidence by default for triggered alerts
+                detected_objects=[], # Extracted from frame tags if merged?
+                scene_description=response.video_analysis,
+                risk_factors=[response.instruction_alignment], # Using alignment as risk factor
+                recommendations=response.recommended_actions or []
+            )
+
+            # Main Alert Object
+            alert_in = AlertCreate(
+                feed_id=feed_id,
+                title=f"AI Alert: {severity.value.upper()} Risk Detected",
+                description=response.reasoning[:1000] if response.reasoning else response.video_analysis[:1000],
+                status=AlertStatus.ACTIVE,
+                severity=severity,
+                alert_type=alert_type,
+                video_url=None, # To be linked with built clip later
+                thumbnail_url=None,
+                ai_analysis=ai_analysis_create,
+                actions=actions_create
+            )
+
+            async with AsyncSessionLocal() as db:
+                created_alert = await alert_crud.create(db, obj_in=alert_in)
+                logger.info(f"✓✓✓ ALERT SAVED TO DB: {created_alert.id} | {created_alert.title}")
+        
+        except Exception as e:
+            logger.error(f"CRITICAL: Failed to save ALERT to DB: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     async def check_segment_trigger(self) -> Optional[VideoSegment]:
         """
@@ -207,6 +311,9 @@ class FeedMonitor:
                             "video_analysis": response.video_analysis
                         }
                     )
+
+                # SAVE TO DB (Fix for missing alerts)
+                await self._save_alert_to_db(segment, response)
 
             return response
 
