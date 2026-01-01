@@ -35,11 +35,19 @@ class DetectionCreate(DetectionBase):
     feed_id: UUID
     alert_id: Optional[UUID] = None
 
+class DetectionFeedback(BaseModel):
+    feedback_status: str # "correct", "incorrect"
+    feedback_comment: Optional[str] = None
+
 class DetectionResponse(DetectionBase):
     id: UUID
     feed_id: UUID
     alert_id: Optional[UUID] = None
     timestamp: datetime
+    
+    # Feedback
+    feedback_status: Optional[str] = None
+    feedback_comment: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

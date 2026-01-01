@@ -118,6 +118,22 @@ class CRUDAnalytics:
         result = await db.execute(query)
         return {row.detection_type: row.count for row in result}
 
+    async def get_detection(self, db: AsyncSession, *, id: UUID) -> Optional[Detection]:
+        """Get detection by ID"""
+        return await db.get(Detection, id)
+
+    async def update_detection_feedback(
+        self, db: AsyncSession, *, detection: Detection, feedback
+    ) -> Detection:
+        """Update detection feedback"""
+        detection.feedback_status = feedback.feedback_status
+        detection.feedback_comment = feedback.feedback_comment
+        
+        db.add(detection)
+        await db.commit()
+        await db.refresh(detection)
+        return detection
+
     # Agent Sessions
     async def create_agent_session(self, db: AsyncSession, *, obj_in: AgentSessionCreate) -> AgentSession:
         """Create new agent session"""

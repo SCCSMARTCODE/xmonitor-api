@@ -44,6 +44,10 @@ class Detection(Base):
     frame_id = Column(String(255), nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     
+    # Feedback
+    feedback_status = Column(String(50), nullable=True) # "correct", "incorrect", "uncertain"
+    feedback_comment = Column(String(1000), nullable=True)
+
     # Relationships
     feed = relationship("CameraFeed", back_populates="detections")
     alert = relationship("Alert", back_populates="related_detections")

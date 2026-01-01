@@ -1,7 +1,7 @@
 from typing import Any, List
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -21,6 +21,7 @@ from app.schemas.analytics import (
     TrendData,
     DetectionCreate,
     DetectionResponse,
+    DetectionFeedback,
     SystemMetricCreate,
     SystemMetricResponse
 )
@@ -280,3 +281,25 @@ async def create_metric(
     """
     metric = await analytics_crud.create_metric(db, obj_in=metric_in)
     return metric
+
+
+@router.post("/detections/{detection_id}/feedback", response_model=DetectionResponse)
+async def submit_detection_feedback(
+    *,
+    db: AsyncSession = Depends(get_db),
+    detection_id: UUID,
+    feedback_in: DetectionFeedback,
+    current_user: User = Depends(get_current_active_user),
+) -> Any:
+    """
+    Submit user feedback for a detection (Correct/Incorrect + Comment).
+    """
+    from app.crud.analytics import analytics
+    detection = await analytics.get_detection(db, id=detection_id)
+    if not detection:
+        raise HTTPException(status_code=404, detail="Detection not found")
+        
+    updated_detection = await analytics.update_detection_feedback(
+        db, detection=detection, feedback=feedback_in
+    )
+    return updated_detection
