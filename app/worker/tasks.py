@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.core.celery_app import celery_app
-from app.core.database import AsyncSessionLocal
 from app.crud.feed import feed as feed_crud
 from app.models.feed import FeedStatus
 
@@ -18,9 +17,52 @@ from app.models.feed import FeedStatus
 logger = logging.getLogger(__name__)
 
 
-async def get_feed_status(feed_id: str) -> str:
+def _sensitivity_to_threshold(sensitivity: str) -> float:
+    """
+    Convert sensitivity level string to a float threshold value.
+
+    Args:
+        sensitivity: Sensitivity level ("low", "medium", "high")
+
+    Returns:
+        Float threshold value for flag_rate comparisons
+    """
+    sensitivity_map = {
+        'high': 0.60,    # More sensitive = lower threshold triggers alerts
+        'medium': 0.75,  # Default
+        'low': 0.90,     # Less sensitive = higher threshold needed to trigger
+    }
+    # Handle both string and enum values
+    sensitivity_str = str(sensitivity).lower()
+    return sensitivity_map.get(sensitivity_str, 0.75)
+
+
+def get_sync_engine():
+    """Create a fresh async engine for the current event loop"""
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from app.core.config import settings
+
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=False,
+        future=True,
+        pool_pre_ping=True,
+        pool_size=2,
+        max_overflow=3,
+    )
+    session_factory = async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+    return engine, session_factory
+
+
+async def get_feed_status(session_factory, feed_id: str) -> str:
     """Helper to fetch current status from DB"""
-    async with AsyncSessionLocal() as db:
+    async with session_factory() as db:
         feed = await feed_crud.get(db, id=feed_id)
         if feed:
             return feed.status
@@ -36,20 +78,24 @@ def monitor_feed_task(self, feed_id: str):
     logger.info(f"Starting monitoring task for Feed ID: {feed_id}")
     
     video_capture = None
-    
+    engine = None
+
     # Get initial details (Sync or Async run_until_complete)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
     try:
-        current_status = loop.run_until_complete(get_feed_status(feed_id))
+        # Create task-specific engine and session factory (scoped to this event loop)
+        engine, session_factory = get_sync_engine()
+
+        current_status = loop.run_until_complete(get_feed_status(session_factory, feed_id))
         if current_status != FeedStatus.ACTIVE.value:
             logger.info(f"Feed {feed_id} is not ACTIVE ({current_status}). Aborting task.")
             return
 
         # Fetch feed details
         async def get_feed_details():
-            async with AsyncSessionLocal() as db:
+            async with session_factory() as db:
                 return await feed_crud.get(db, id=feed_id)
         
         feed = loop.run_until_complete(get_feed_details())
@@ -93,14 +139,14 @@ def monitor_feed_task(self, feed_id: str):
                  }
              },
              'classifier': {
-                'model_name': 'gemini-2.5-flash',
-                'flag_threshold': 0.5,  # Lowered from 0.7 to capture more detections
-                'frame_skip': 5,
+                'model_name': 'gemini-2.5-flash-lite',
+                'flag_threshold': _sensitivity_to_threshold(feed.settings.sensitivity if feed.settings else 'medium'),
+                'frame_skip': feed.fps or 40,
                 'evaluation_window': 5
              },
              'analyzer': {
-                 'model_name': 'gemini-2.5-pro',
-                 'trigger_threshold': 0.7,
+                 'model_name': 'gemini-2.5-flash',
+                 'trigger_threshold': _sensitivity_to_threshold(feed.settings.sensitivity if feed.settings else 'medium'),
                  'segment_duration': 10
              },
             'alert': {
@@ -139,7 +185,7 @@ def monitor_feed_task(self, feed_id: str):
         while True:
             # A. Check Stop Signal
             if time.time() - last_check > check_interval:
-                current_status = loop.run_until_complete(get_feed_status(feed_id))
+                current_status = loop.run_until_complete(get_feed_status(session_factory, feed_id))
                 if current_status != FeedStatus.ACTIVE.value:
                     logger.info(f"Stop signal received (Status={current_status}). Shutting down monitoring for {feed_id}.")
                     break
@@ -197,6 +243,12 @@ def monitor_feed_task(self, feed_id: str):
     finally:
         if video_capture:
             video_capture.stop()
+        # Properly dispose of the engine before closing the loop
+        if engine:
+            try:
+                loop.run_until_complete(engine.dispose())
+            except Exception as e:
+                logger.warning(f"Error disposing engine: {e}")
         loop.close()
         logger.info(f"Monitoring task ended for {feed_id}")
 
