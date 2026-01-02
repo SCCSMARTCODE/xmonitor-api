@@ -97,5 +97,5 @@ def get_alert_tools(config: Dict[str, Any]) -> List:
         # send_alert,
         send_sms,
         # emergency_call,
-        # query_safex_api
+        # query_xmonitor_api
     ]

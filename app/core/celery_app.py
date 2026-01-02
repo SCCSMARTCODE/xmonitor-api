@@ -24,7 +24,7 @@ import app.models  # noqa: F401
 REDIS_URL = settings.REDIS_URL
 
 celery_app = Celery(
-    "safex_worker",
+    "xmonitor_worker",
     broker=REDIS_URL,
     backend=REDIS_URL,
     include=["app.worker.tasks"]
@@ -48,7 +48,7 @@ def setup_worker_logging(**kwargs):
     from app.worker.utils.logging_config import setup_logging
     setup_logging(
         level=settings.LOG_LEVEL,
-        log_file="logs/safex-worker.log",
+        log_file="logs/xmonitor-worker.log",
         console=True
     )
 

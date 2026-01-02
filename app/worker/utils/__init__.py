@@ -1,5 +1,5 @@
 """
-SafeX Worker Utilities
+XMonitor Worker Utilities
 """
 from app.worker.utils.logging_config import setup_logging
 

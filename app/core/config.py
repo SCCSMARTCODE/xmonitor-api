@@ -3,10 +3,10 @@ from typing import List, Optional
 
 
 class Settings(BaseSettings):
-    """SafeX API Configuration Settings"""
+    """XMonitor API Configuration Settings"""
 
     # Application
-    APP_NAME: str = "SafeX API"
+    APP_NAME: str = "XMonitor API"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
     ENVIRONMENT: str = "development"
