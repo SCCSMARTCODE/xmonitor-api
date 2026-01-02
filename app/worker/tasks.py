@@ -139,13 +139,15 @@ def monitor_feed_task(self, feed_id: str):
                  }
              },
              'classifier': {
-                'model_name': 'gemini-2.5-flash-lite',
+                'model_name': 'gemini-2.5-flash',
+                 "model_temperature": 0.0,
                 'flag_threshold': _sensitivity_to_threshold(feed.settings.sensitivity if feed.settings else 'medium'),
                 'frame_skip': feed.fps or 40,
                 'evaluation_window': 5
              },
              'analyzer': {
                  'model_name': 'gemini-2.5-flash',
+                 "model_temperature": 0.0,
                  'trigger_threshold': _sensitivity_to_threshold(feed.settings.sensitivity if feed.settings else 'medium'),
                  'segment_duration': 10
              },

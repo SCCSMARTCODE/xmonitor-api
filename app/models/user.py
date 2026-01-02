@@ -6,7 +6,7 @@ from app.core.database import Base
 
 
 class User(Base):
-    """User model for SafeX API"""
+    """User model for XMonitor API"""
 
     __tablename__ = "users"
 

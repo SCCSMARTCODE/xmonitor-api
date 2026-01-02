@@ -49,6 +49,7 @@ class VideoAnalyzer:
         # Initialize LLM
         self.client = genai.Client(api_key=api_key) if api_key else genai.Client()
         self.model_name = config['analyzer']['model_name']
+        self.model_temperature = config['analyzer'].get('model_temperature', 0.0)
 
         # Setup tools and agent
         self.tools = get_alert_tools(config)
@@ -57,7 +58,7 @@ class VideoAnalyzer:
         logger.info(f"VideoAnalyzer initialized with {len(self.tools)} tools")
 
         self.sys_prompt = """
-You are the SafeX Elite Video Intelligence Unit. You are the final decision-maker.
+You are the XMonitor Elite Video Intelligence Unit. You are the final decision-maker.
 Your analysis determines whether a security protocol has been breached.
 
 Your goal is 100% interpretative accuracy. You do not just "see" movement; you understand intent, context, and causality based strictly on the User's Instruction.
@@ -140,7 +141,8 @@ Analyze the video. Apply the User Instruction as Law. Output the JSON.
                 config=types.GenerateContentConfig(
                     system_instruction=self.sys_prompt,
                     response_mime_type="application/json",
-                    response_json_schema=self.VideoAnalyzerResponse.model_json_schema()
+                    response_json_schema=self.VideoAnalyzerResponse.model_json_schema(),
+                    temperature=self.model_temperature
                 )
             )
 

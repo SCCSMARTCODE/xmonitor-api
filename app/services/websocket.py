@@ -22,7 +22,7 @@ class ConnectionManager:
                 decode_responses=True
             )
             self.pubsub = self.redis_client.pubsub()
-            await self.pubsub.subscribe("safex_events")
+            await self.pubsub.subscribe("xmonitor_events")
         except Exception as e:
             print(f"Redis connection failed: {e}")
             self.redis_client = None
@@ -82,7 +82,7 @@ class ConnectionManager:
                     "type": event_type,
                     "data": data
                 })
-                await self.redis_client.publish("safex_events", message)
+                await self.redis_client.publish("xmonitor_events", message)
             except Exception as e:
                 print(f"Failed to publish to Redis: {e}")
         
