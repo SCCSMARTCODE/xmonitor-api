@@ -1,4 +1,4 @@
-# SafeX API - FastAPI Backend
+# XMonitor API - FastAPI Backend
 
 **AI-Powered Safety Monitoring System Backend**
 
@@ -21,8 +21,8 @@
 ### 1. Clone and Setup
 
 ```powershell
-# Navigate to safex-api directory
-cd C:\Users\PC\Desktop\safex-api
+# Navigate to xmonitor-api directory
+cd C:\Users\PC\Desktop\xmonitor-api
 
 # Create virtual environment
 python -m venv .venv
@@ -79,7 +79,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ## 📦 Project Structure
 
 ```
-safex-api/
+xmonitor-api/
 ├── app/
 │   ├── api/
 │   │   └── v1/
@@ -223,13 +223,13 @@ gunicorn main:app \
 
 - **Implementation Plan**: [implementation_plan.md](../../../.gemini/antigravity/brain/6b17de71-b89c-418d-b5ae-e16679a3f060/implementation_plan.md)
 - **Task List**: [task.md](../../../.gemini/antigravity/brain/6b17de71-b89c-418d-b5ae-e16679a3f060/task.md)
-- **API Spec**: [BACKEND_API_SPECIFICATION.md](../safex-ui/BACKEND_API_SPECIFICATION.md)
+- **API Spec**: [BACKEND_API_SPECIFICATION.md](../xmonitor-ui/BACKEND_API_SPECIFICATION.md)
 
 ---
 
 ## 🤝 Integration
 
-### SafeX Agent Integration
+### XMonitor Agent Integration
 
 The Agent connects to the API to:
 1. Create alerts when threats detected
@@ -239,7 +239,7 @@ The Agent connects to the API to:
 
 **Agent Authentication**: JWT tokens (recommended) or API keys
 
-### SafeX UI Integration
+### XMonitor UI Integration
 
 The UI fetches data from:
 - System status and metrics
@@ -264,4 +264,4 @@ For issues or questions:
 
 ---
 
-**SafeX API v1.0.0** - Powering Intelligent Safety Monitoring 🛡️
+**XMonitor API v1.0.0** - Powering Intelligent Safety Monitoring 🛡️
