@@ -1,5 +1,5 @@
 """
-Data models for SafeX Worker (Ported from Agent)
+Data models for XMonitor Worker (Ported from Agent)
 """
 from dataclasses import dataclass, field
 from datetime import datetime

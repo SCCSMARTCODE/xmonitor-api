@@ -10,7 +10,7 @@ from app.worker.utils.logging_config import setup_logging
 # Setup logging at module load time (before app starts)
 setup_logging(
     level=settings.LOG_LEVEL,
-    log_file="logs/safex-api.log",
+    log_file="logs/xmonitor-api.log",
     console=True
 )
 
@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="SafeX API - Intelligent Safety Monitoring Backend",
+    description="XMonitor API - Intelligent Safety Monitoring Backend",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan

@@ -45,6 +45,7 @@ class FrameClassifier:
 
         self.client = genai.Client(api_key=api_key)
         self.model_name = config['classifier']['model_name']
+        self.model_temperature = config['classifier'].get('model_temperature', 0.0)
         self.flag_threshold = config['classifier']['flag_threshold']
         self.frame_skip = config['classifier'].get('frame_skip', 1)
         self.surveillance_instruction = config['surveillance']['instruction']
@@ -169,10 +170,12 @@ Output ONLY the JSON.
                 self.client.models.generate_content,
                 model=self.model_name,
                 contents=messages,
-                config={
-                    "response_mime_type": "application/json",
-                    "response_json_schema": self.ClassifierResponse.model_json_schema(),
-                }
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_json_schema=self.ClassifierResponse.model_json_schema(),
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                    temperature=self.model_temperature
+            )
             )
 
 

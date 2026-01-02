@@ -69,7 +69,7 @@ class MediaService:
         result = cloudinary.uploader.upload(
             content,
             resource_type=resource_type,
-            folder="safex"
+            folder="xmonitor"
         )
         
         return {

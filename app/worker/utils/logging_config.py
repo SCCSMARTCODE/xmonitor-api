@@ -1,5 +1,5 @@
 """
-Logging configuration for SafeX Worker (Ported from SafeX-Agent)
+Logging configuration for XMonitor Worker (Ported from XMonitor-Agent)
 """
 import logging
 import logging.handlers
@@ -11,7 +11,7 @@ import sys
 def setup_logging(
     config: Optional[Dict[str, Any]] = None,
     level: str = "INFO",
-    log_file: str = "logs/safex.log",
+    log_file: str = "logs/xmonitor.log",
     console: bool = True
 ):
     """

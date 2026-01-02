@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 class FeedMonitor:
     """
-    Orchestrates the two-layer SafeX-Agent system for a single feed:
+    Orchestrates the two-layer XMonitor-Agent system for a single feed:
     - Layer 1: Real-time frame classification (Mistral)
     - Layer 2: Contextual video analysis and response (Gemini)
     """
